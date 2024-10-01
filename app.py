@@ -99,7 +99,7 @@ def combine_predictions(face_pred, gesture_pred):
 # Carregar os modelos e seus pesos
 num_classes = 4  # 'Feliz', 'Raiva', 'Surpreso', 'Triste'
 face_model = create_face_model((224, 224, 3), (68 * 2,), num_classes)
-face_model.load_weights('modelo_emocao_face_vgg16_landmarks.weights.h5')
+face_model.load_weights('modelo_emocao_face_4classes.weights.h5')
 
 gesture_model = tf.keras.models.load_model('modelo_landmarks_gesto_emocoes_libras.h5')  # Atualize o caminho conforme necessário
 
