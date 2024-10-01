@@ -6,6 +6,7 @@ import tensorflow as tf
 import mediapipe as mp
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Input, Concatenate, Dropout
 from tensorflow.keras.applications import VGG16
+from PIL import Image
 
 # Carrega o classificador Haar Cascade pré-treinado para detecção de rostos
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -98,32 +99,27 @@ def combine_predictions(face_pred, gesture_pred):
 # Carregar os modelos e seus pesos
 num_classes = 4  # 'Feliz', 'Raiva', 'Surpreso', 'Triste'
 face_model = create_face_model((224, 224, 3), (68 * 2,), num_classes)
-face_model.load_weights('modelo_emocao_face_4classes.weights.h5')
+face_model.load_weights('modelo_emocao_face_vgg16_landmarks.weights.h5')
 
 gesture_model = tf.keras.models.load_model('modelo_landmarks_gesto_emocoes_libras.h5')  # Atualize o caminho conforme necessário
 
-# Função para capturar a câmera em tempo real usando Streamlit
+# Função para capturar a imagem da câmera do navegador usando Streamlit
 def classify_realtime_streamlit():
-    st.title("Reconhecimento de Emoções em LIBRAS em Tempo Real")
-    run = st.checkbox('Iniciar Detecção')
+    st.title("Detecção de Emoções e Gestos em Tempo Real")
+    uploaded_image = st.camera_input("Capture uma imagem usando a câmera")
 
-    frame_window = st.image([])
-    text_window = st.empty()
+    if uploaded_image is not None:
+        # Converte a imagem capturada em um array
+        image = np.array(Image.open(uploaded_image))
+        st.image(image, caption='Imagem capturada', use_column_width=True)
 
-    cap = cv2.VideoCapture(0)
-    class_names = ['Feliz', 'Raiva', 'Surpreso', 'Triste']
-
-    while run:
-        ret, frame = cap.read()
-        if not ret:
-            st.write("Falha ao capturar imagem da câmera.")
-            break
+        class_names = ['Feliz', 'Raiva', 'Surpreso', 'Triste']
 
         # Detectar emoção facial
-        face_region, face_landmarks = detect_face_and_landmarks(frame)
+        face_region, face_landmarks = detect_face_and_landmarks(image)
         face_prediction = np.zeros((1, num_classes))  # Previsão padrão
 
-        if face_region is not None and face_landmarks is not None and are_landmarks_valid(face_landmarks, frame.shape):
+        if face_region is not None and face_landmarks is not None and are_landmarks_valid(face_landmarks, image.shape):
             face_region_rgb = cv2.cvtColor(face_region, cv2.COLOR_BGR2RGB)
             face_region_resized = cv2.resize(face_region_rgb, (224, 224))
             face_region_resized = np.expand_dims(face_region_resized.astype(np.float32) / 255.0, axis=0)
@@ -132,7 +128,7 @@ def classify_realtime_streamlit():
             face_prediction = face_model.predict([face_region_resized, face_landmarks])
 
         # Detectar gestos da mão
-        hand_landmarks = extract_hand_landmarks(frame)
+        hand_landmarks = extract_hand_landmarks(image)
         gesture_prediction = np.zeros((1, num_classes))  # Previsão padrão
 
         if hand_landmarks is not None:
@@ -144,15 +140,7 @@ def classify_realtime_streamlit():
 
         # Exibir o resultado na tela
         label = f"{class_names[dominant_class]}: {confidence:.2f}%"
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame_window.image(frame_rgb)
-        text_window.text(label)
-
-        # Adiciona um delay para simular uma taxa de frames mais baixa
-        cv2.waitKey(100)
-
-    cap.release()
-    cv2.destroyAllWindows()
+        st.write(f"Emoção detectada: {label}")
 
 # Iniciar a aplicação Streamlit
 if __name__ == '__main__':
